@@ -64,12 +64,14 @@ jobs:
             pip install -r requirements.txt
           fi
 
-      - name: Verify behavior evals at current commit
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: Verify structure evals at current commit
         run: |
           set -euo pipefail
-          python tools/eval-runner/run_evals.py --tier behavior "skills/${{ inputs.skill }}"
+          python tools/eval-runner/run_evals.py --tier structure "skills/${{ inputs.skill }}"
+
+      # Behavior evals are run locally by the skill author via Claude Code subagents
+      # before opening the promotion PR. CI does not call the Anthropic API.
+      # See docs/EVALS-FORMAT.md "Running evals locally" for the workflow.
 
       - name: Set up Go
         uses: actions/setup-go@v5

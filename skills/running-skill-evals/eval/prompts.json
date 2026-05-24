@@ -1,0 +1,16 @@
+{
+  "evals": [
+    {
+      "id": "missing-eval-dir",
+      "prompt": "I want to run behavior evals on `skills/my-new-skill/`. The directory exists and has `SKILL.md` but no `eval/` subfolder yet. What do you do?"
+    },
+    {
+      "id": "two-prompts-one-orphan",
+      "prompt": "Here is `eval/prompts.json` with two entries (ids `foo` and `bar`) and `eval/assertions.md` that only has a `## Behavioral. foo` section. Walk me through what happens when you start a run."
+    },
+    {
+      "id": "subagent-context-question",
+      "prompt": "If I already have the skill loaded in my current Claude Code session, do I still need to inline `SKILL.md` into the Task tool prompt when I spawn the subagent? Why?"
+    }
+  ]
+}

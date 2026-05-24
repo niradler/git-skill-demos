@@ -39,7 +39,7 @@ and rollback: <https://github.com/niradler/git-skill-consumer-demo>.
 
 ## CI gates
 
-Four workflows under `.github/workflows/` enforce the lifecycle.
+Three workflows under `.github/workflows/` enforce the lifecycle. **CI never calls the Anthropic API.** Behavior evals are a local, interactive workflow — see "Running behavior evals locally" below.
 
 ### 1. `structure-evals.yml` — every PR, every push
 
@@ -52,20 +52,9 @@ python tools/eval-runner/run_evals.py --tier structure <skill-path>
 
 Cheap, deterministic, no API calls. Failures annotate the PR and fail the job.
 **This is the merge gate for structural quality** (required sections, file layout,
-manifest sanity).
+manifest sanity, `prompts.json` parses, `assertions.md` parses).
 
-### 2. `behavior-evals.yml` — opt-in on PR, required on main
-
-Triggers on `pull_request` when the `run-behavior-evals` label is applied, and
-on every `push` to `main`. Calls the Anthropic API via `secrets.ANTHROPIC_API_KEY`
-to score the skill against its case rubrics.
-
-- **On PR:** posts a comment with per-skill scores (via `actions/github-script`). Advisory — does not block merge.
-- **On main:** required. Any failing skill fails the job.
-
-Gating behind a label keeps API spend bounded.
-
-### 3. `publish.yml` — `push` to `main`
+### 2. `publish.yml` — `push` to `main`
 
 For each skill or agent whose canonical tree changed in the merged commit:
 
@@ -82,10 +71,10 @@ on an unchanged commit is a no-op.
 Dev tags follow the `X.Y.Z-dev.N` semver pattern so consumers can opt in to
 in-progress versions via the spec `^X.Y.Z-dev`.
 
-### 4. `promote.yml` — manual dev → prod
+### 3. `promote.yml` — manual dev → prod
 
 `workflow_dispatch` with two inputs: `skill` (name) and `version` (bare semver,
-e.g. `1.0.0`). It verifies behavior evals at the current commit, and only on
+e.g. `1.0.0`). It re-verifies structure evals at the current commit, and only on
 green:
 
 1. `git skill tag <skill> <version>`
@@ -94,7 +83,26 @@ green:
    `skills/<skill>/`.
 
 This is the only path to a non-`-dev` tag. Consumers pinning `^1.0.0` will not
-pick up anything until a human runs this workflow.
+pick up anything until a human runs this workflow. **Behavior-eval verification
+is the skill author's responsibility before opening the promotion** — see below.
+
+## Running behavior evals locally
+
+Behavior evals (does the model actually do what the skill says?) need an LLM in
+the loop. We keep that loop **local and interactive**, not in CI:
+
+- No API key sits in this repo's secrets.
+- The author runs evals on their own machine, using their own Claude Code
+  subscription (or Anthropic API key — their choice).
+- The skill `skills/running-skill-evals/` walks Claude Code through the loop:
+  for each prompt in `eval/prompts.json`, spawn a Claude Code subagent with the
+  target skill loaded into its context (`Task` tool), capture the response, and
+  score each behavioral assertion under `## Behavioral. <prompt-id>` in
+  `eval/assertions.md`.
+
+The Python `tools/eval-runner/` still includes `--tier behavior` for users who
+prefer a headless flow (it reads `ANTHROPIC_API_KEY` from env), but it's not
+called from CI.
 
 ## Permissions model
 
@@ -103,7 +111,6 @@ Each workflow declares the narrowest `permissions:` block it needs:
 | Workflow            | `contents` | `pull-requests` |
 |---------------------|------------|-----------------|
 | `structure-evals`   | `read`     | (none)          |
-| `behavior-evals`    | `read`     | `write`         |
 | `publish`           | `write`    | (none)          |
 | `promote`           | `write`    | `write`         |
 
