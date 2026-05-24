@@ -51,6 +51,14 @@ jobs:
       - name: Sanity check git-skill
         run: git skill --help || git-skill --help
 
+      - name: Fetch existing asset refs
+        # actions/checkout only fetches refs/heads/* (+ refs/tags/* with
+        # fetch-tags). Custom refs/assets/* and refs/asset-tags/* are not
+        # pulled, so `git skill commit` would create orphan histories and
+        # the push would be rejected (non-fast-forward). Fetch them now.
+        run: |
+          git fetch origin '+refs/assets/*:refs/assets/*' '+refs/asset-tags/*:refs/asset-tags/*' || true
+
       - name: Detect changed skills and agents since previous main commit
         id: changed
         shell: bash
