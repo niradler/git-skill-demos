@@ -88,7 +88,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          git skill tag "${{ inputs.skill }}" "${{ inputs.version }}"
+          git skill tag "${{ inputs.skill }}" "v${{ inputs.version }}"
           git skill push origin
 
       - name: Comment on latest closed PR for this skill
