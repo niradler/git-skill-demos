@@ -1,0 +1,16 @@
+{
+  "evals": [
+    {
+      "id": "scaffold-new-skill",
+      "prompt": "Scaffold a new SKILL.md for a skill that helps me write release notes from a list of merged PRs. The skill should trigger when I paste a list of PR titles or ask for a release summary. Show me the full SKILL.md content."
+    },
+    {
+      "id": "fix-bad-description",
+      "prompt": "I have a SKILL.md with this frontmatter:\n\n```yaml\n---\nname: db-helper\ndescription: Helps with database stuff.\n---\n```\n\nRewrite the description so it actually triggers reliably."
+    },
+    {
+      "id": "review-skill-structure",
+      "prompt": "Review this SKILL.md draft and tell me what's wrong:\n\n```markdown\n---\nname: api_client\n---\n# API Client\n\nThis skill helps you call APIs. Make sure to handle errors properly and use the right HTTP method. You should also think about authentication.\n\nThe library you use depends on the language.\n```"
+    }
+  ]
+}
