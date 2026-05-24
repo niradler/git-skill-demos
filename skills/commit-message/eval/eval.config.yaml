@@ -1,0 +1,6 @@
+version: 1
+judge:
+  model: claude-haiku-4-5-20251001
+  passing_score: 0.8
+skill_under_test:
+  model: claude-sonnet-4-6

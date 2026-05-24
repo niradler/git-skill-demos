@@ -1,0 +1,144 @@
+name: promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      skill:
+        description: "Skill name (directory under skills/, e.g. code-review)"
+        required: true
+        type: string
+      version:
+        description: "Target semver, no -dev suffix (e.g. 1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  promote:
+    name: Verify evals + tag prod release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Validate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          skill="${{ inputs.skill }}"
+          version="${{ inputs.version }}"
+          if [ ! -d "skills/$skill" ]; then
+            echo "::error::skills/$skill does not exist"; exit 1
+          fi
+          if [ ! -f "skills/$skill/SKILL.md" ]; then
+            echo "::error::skills/$skill is missing SKILL.md"; exit 1
+          fi
+          if ! echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::version '$version' is not a bare semver (no pre-release suffix allowed)"
+            exit 1
+          fi
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install eval-runner deps
+        working-directory: tools/eval-runner
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f pyproject.toml ]; then
+            pip install .
+          elif [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+
+      - name: Verify behavior evals at current commit
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          python tools/eval-runner/run_evals.py --tier behavior "skills/${{ inputs.skill }}"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install git-skill
+        run: |
+          go install github.com/niradler/git-skill/cmd/git-skill@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Tag prod version and push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git skill tag "${{ inputs.skill }}" "${{ inputs.version }}"
+          git skill push origin
+
+      - name: Comment on latest closed PR for this skill
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const skill = `${{ inputs.skill }}`;
+            const version = `${{ inputs.version }}`;
+            const sha = context.sha;
+            const pathPrefix = `skills/${skill}/`;
+
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed',
+              sort: 'updated',
+              direction: 'desc',
+              per_page: 50,
+            });
+
+            let target = null;
+            for (const pr of prs) {
+              const { data: files } = await github.rest.pulls.listFiles({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                per_page: 300,
+              });
+              if (files.some(f => f.filename.startsWith(pathPrefix))) {
+                target = pr;
+                break;
+              }
+            }
+
+            if (!target) {
+              core.info(`No closed PR found touching ${pathPrefix}; skipping comment.`);
+              return;
+            }
+
+            const body = [
+              `## Promoted: \`${skill}\` -> \`${version}\``,
+              ``,
+              `Commit: \`${sha}\``,
+              `Tag ref: \`refs/asset-tags/skill/${skill}/v${version}\``,
+              ``,
+              `Triggered by workflow run #${context.runNumber} (\`promote.yml\`).`,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: target.number,
+              body,
+            });
+            core.info(`Commented on PR #${target.number}.`);

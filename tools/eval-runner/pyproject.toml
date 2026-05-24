@@ -1,0 +1,24 @@
+[project]
+name = "eval-runner"
+version = "0.1.0"
+description = "Evals harness for git-skill demos: validates SKILL.md assets via structure and behavior tiers."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "git-skill-demos contributors" },
+]
+dependencies = [
+    "anthropic>=0.40.0",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+run-evals = "run_evals:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["run_evals", "structure_check", "behavior_check", "judge"]

@@ -1,0 +1,94 @@
+name: structure-evals
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "**"
+
+permissions:
+  contents: read
+
+jobs:
+  structure:
+    name: Structure evals on changed skills
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install eval-runner deps
+        working-directory: tools/eval-runner
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f pyproject.toml ]; then
+            pip install .
+          elif [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+
+      - name: Detect changed skills
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.event.pull_request.head.sha }}"
+            diff_range="${base_sha}...${head_sha}"
+          else
+            before="${{ github.event.before }}"
+            after="${{ github.sha }}"
+            if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
+              # First push to branch — fall back to a single-commit diff.
+              diff_range="${after}~1...${after}"
+            else
+              diff_range="${before}...${after}"
+            fi
+          fi
+
+          echo "Diff range: $diff_range"
+
+          # Extract top-level skill paths (skills/<name>/) that contain a SKILL.md.
+          changed=$(git diff --name-only "$diff_range" -- 'skills/*' \
+            | awk -F'/' 'NF>=2 && $1=="skills" {print $1"/"$2}' \
+            | sort -u)
+
+          paths=""
+          for p in $changed; do
+            if [ -f "$p/SKILL.md" ]; then
+              paths="$paths $p"
+            fi
+          done
+
+          paths="$(echo "$paths" | xargs || true)"
+          echo "Changed skill paths: $paths"
+          echo "paths=$paths" >> "$GITHUB_OUTPUT"
+
+      - name: Run structure evals
+        if: steps.changed.outputs.paths != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=0
+          for skill in ${{ steps.changed.outputs.paths }}; do
+            echo "::group::structure evals: $skill"
+            if ! python tools/eval-runner/run_evals.py --tier structure "$skill"; then
+              echo "::error file=$skill/SKILL.md::Structure evals failed for $skill"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $status
+
+      - name: No skills changed
+        if: steps.changed.outputs.paths == ''
+        run: echo "No skill directories changed; nothing to evaluate."

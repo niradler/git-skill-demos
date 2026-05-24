@@ -1,0 +1,141 @@
+name: publish
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Commit + dev-tag changed skills
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install git-skill
+        run: |
+          go install github.com/niradler/git-skill/cmd/git-skill@latest
+          # Ensure go bin is on PATH for subsequent steps.
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Sanity check git-skill
+        run: git skill --help || git-skill --help
+
+      - name: Detect changed skills and agents since previous main commit
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          before="${{ github.event.before }}"
+          after="${{ github.sha }}"
+          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
+            diff_range="${after}~1...${after}"
+          else
+            diff_range="${before}...${after}"
+          fi
+          echo "Diff range: $diff_range"
+
+          # skills/<name>/ and agents/<name>/
+          changed=$(git diff --name-only "$diff_range" -- 'skills/*' 'agents/*' \
+            | awk -F'/' 'NF>=2 && ($1=="skills" || $1=="agents") {print $1"/"$2}' \
+            | sort -u)
+
+          # Keep only those with a marker file.
+          out=""
+          for p in $changed; do
+            if [ -f "$p/SKILL.md" ] || [ -f "$p/AGENT.md" ]; then
+              out="$out $p"
+            fi
+          done
+          out="$(echo "$out" | xargs || true)"
+          echo "Changed asset paths: $out"
+          echo "paths=$out" >> "$GITHUB_OUTPUT"
+
+      - name: Publish each changed asset
+        if: steps.changed.outputs.paths != ''
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_NUMBER: ${{ github.run_number }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          for asset_path in ${{ steps.changed.outputs.paths }}; do
+            kind_dir="$(dirname "$asset_path")"
+            name="$(basename "$asset_path")"
+
+            if [ "$kind_dir" = "skills" ]; then
+              cli="git skill"
+              kind="skill"
+            else
+              cli="git asset --kind agent"
+              kind="agent"
+            fi
+
+            echo "::group::publish $kind/$name ($asset_path)"
+
+            base_version="0.1.0"
+            if [ -f "$asset_path/version.txt" ]; then
+              base_version="$(tr -d '[:space:]' < "$asset_path/version.txt")"
+              base_version="${base_version:-0.1.0}"
+            fi
+            dev_version="${base_version}-dev.${RUN_NUMBER}"
+
+            # Compare current canonical tree (working tree) to the latest published
+            # ref. If unchanged, skip — keeps the job idempotent across re-runs.
+            ref_name=""
+            if [ "$kind" = "skill" ]; then
+              ref_name="refs/assets/skill/${name}"
+            else
+              ref_name="refs/assets/agent/${name}"
+            fi
+
+            published_tree=""
+            if git show-ref --verify --quiet "$ref_name"; then
+              published_tree="$(git rev-parse "${ref_name}^{tree}" 2>/dev/null || true)"
+            fi
+            working_tree="$(git ls-tree HEAD -- "$asset_path" | awk '{print $3; exit}')"
+
+            if [ -n "$published_tree" ] && [ "$published_tree" = "$working_tree" ]; then
+              echo "Canonical tree unchanged for $kind/$name; skipping."
+              echo "::endgroup::"
+              continue
+            fi
+
+            $cli commit "$name" --path "$asset_path" -m "publish from CI: ${COMMIT_SHA}"
+            $cli tag "$name" "$dev_version"
+
+            echo "::endgroup::"
+          done
+
+      - name: Push asset refs and tags
+        if: steps.changed.outputs.paths != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Push skill and agent ref namespaces. Safe even if one is empty.
+          git skill push origin || true
+          git asset --kind agent push origin || true
+
+      - name: No assets changed
+        if: steps.changed.outputs.paths == ''
+        run: echo "No skill or agent directories changed; nothing to publish."

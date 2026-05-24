@@ -1,0 +1,16 @@
+{
+  "evals": [
+    {
+      "id": "feat-with-scope",
+      "prompt": "Write a commit message for a change that adds OAuth2 login support to the authentication module. There is no breaking change. Closes issue 217."
+    },
+    {
+      "id": "breaking-change",
+      "prompt": "Write a commit message for renaming the public function Connection.close() to Connection.shutdown() in the database client. All existing callers must be updated."
+    },
+    {
+      "id": "fix-with-body",
+      "prompt": "Write a commit message for a bug fix in the JWT auth handler: tokens missing an `exp` claim were silently accepted as never-expiring, which meant revoked sessions lingered in caches. The fix rejects any token without an `exp` claim."
+    }
+  ]
+}
