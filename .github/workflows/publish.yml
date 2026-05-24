@@ -4,6 +4,16 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      force_all:
+        description: "Publish ALL skills/agents regardless of diff (useful after CI changes or initial-state fixes)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 permissions:
   contents: write
@@ -43,9 +53,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          force_all="${{ inputs.force_all || 'false' }}"
           before="${{ github.event.before }}"
           after="${{ github.sha }}"
-          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ] \
+          if [ "$force_all" = "true" ]; then
+            echo "force_all=true — publishing all skills/agents."
+            changed=$( { ls -d skills/*/ agents/*/ 2>/dev/null || true; } \
+              | sed 's:/$::' \
+              | sort -u)
+          elif [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ] \
               || ! git rev-parse --verify --quiet "${after}~1" >/dev/null; then
             echo "Initial commit or no parent — publishing all skills/agents."
             changed=$( { ls -d skills/*/ agents/*/ 2>/dev/null || true; } \
