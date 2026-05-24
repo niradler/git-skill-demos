@@ -141,8 +141,8 @@ jobs:
               continue
             fi
 
-            git skill commit "$name" $kind_flag --path "$asset_path" -m "publish from CI: ${COMMIT_SHA}"
-            git skill tag "$name" "$dev_version" $kind_flag
+            git skill commit $kind_flag --path "$asset_path" -m "publish from CI: ${COMMIT_SHA}" "$name"
+            git skill tag $kind_flag "$name" "$dev_version"
 
             echo "::endgroup::"
           done
