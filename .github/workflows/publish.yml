@@ -142,7 +142,7 @@ jobs:
             fi
 
             git skill commit $kind_flag --path "$asset_path" -m "publish from CI: ${COMMIT_SHA}" "$name"
-            git skill tag $kind_flag "$name" "$dev_version"
+            git skill tag $kind_flag "$name" "v${dev_version}"
 
             echo "::endgroup::"
           done
