@@ -70,3 +70,4 @@ End with a one-line summary verdict: `approve` / `request changes` / `comment on
 - **Suggesting rewrites in review.** Review is feedback, not authorship. Suggest direction; let the author write.
 - **Ignoring the PR description.** If the description says "fixes bug X", verify a regression test for X exists.
 - **Flagging style issues that disagree with the linter.** If the linter is silent, your taste is not the standard.
+- **Approving without reading the tests.** A diff that touches behavior but not tests is suspect — ask why.
