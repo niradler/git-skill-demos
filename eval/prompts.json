@@ -1,0 +1,16 @@
+{
+  "evals": [
+    {
+      "id": "draft-eval-for-new-skill",
+      "prompt": "I just wrote a new skill at `skills/release-notes/SKILL.md` that takes a list of merged PR titles and produces a markdown release-notes section grouped by Conventional Commit type. Draft the contents of `eval/prompts.json`, `eval/assertions.md`, and `eval/eval.config.yaml` for it. Two realistic prompts is enough."
+    },
+    {
+      "id": "fix-vague-assertions",
+      "prompt": "I have this Behavioral section in my assertions.md. Rewrite it so the items are atomic and verifiable:\n\n```markdown\n## Behavioral. sql-fix\n\n- [ ] Output is good\n- [ ] Handles errors properly\n- [ ] Demonstrates understanding of SQL injection\n```"
+    },
+    {
+      "id": "migrate-old-yaml-format",
+      "prompt": "My skill still uses the old `evals/eval.yaml` + `evals/cases/*.yaml` format. Walk me through migrating it to the new `eval/` layout with `prompts.json` and `assertions.md`. What goes where?"
+    }
+  ]
+}
