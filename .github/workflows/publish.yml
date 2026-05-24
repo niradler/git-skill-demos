@@ -45,17 +45,19 @@ jobs:
           set -euo pipefail
           before="${{ github.event.before }}"
           after="${{ github.sha }}"
-          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
-            diff_range="${after}~1...${after}"
+          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ] \
+              || ! git rev-parse --verify --quiet "${after}~1" >/dev/null; then
+            echo "Initial commit or no parent — publishing all skills/agents."
+            changed=$( { ls -d skills/*/ agents/*/ 2>/dev/null || true; } \
+              | sed 's:/$::' \
+              | sort -u)
           else
             diff_range="${before}...${after}"
+            echo "Diff range: $diff_range"
+            changed=$(git diff --name-only "$diff_range" -- 'skills/*' 'agents/*' \
+              | awk -F'/' 'NF>=2 && ($1=="skills" || $1=="agents") {print $1"/"$2}' \
+              | sort -u)
           fi
-          echo "Diff range: $diff_range"
-
-          # skills/<name>/ and agents/<name>/
-          changed=$(git diff --name-only "$diff_range" -- 'skills/*' 'agents/*' \
-            | awk -F'/' 'NF>=2 && ($1=="skills" || $1=="agents") {print $1"/"$2}' \
-            | sort -u)
 
           # Keep only those with a marker file.
           out=""

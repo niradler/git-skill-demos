@@ -40,27 +40,35 @@ jobs:
         run: |
           set -euo pipefail
 
+          list_all_skills() {
+            ls -d skills/*/ 2>/dev/null \
+              | sed 's:/$::' \
+              | sort -u
+          }
+
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             base_sha="${{ github.event.pull_request.base.sha }}"
             head_sha="${{ github.event.pull_request.head.sha }}"
             diff_range="${base_sha}...${head_sha}"
+            changed=$(git diff --name-only "$diff_range" -- 'skills/*' \
+              | awk -F'/' 'NF>=2 && $1=="skills" {print $1"/"$2}' \
+              | sort -u)
           else
             before="${{ github.event.before }}"
             after="${{ github.sha }}"
-            if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
-              # First push to branch — fall back to a single-commit diff.
-              diff_range="${after}~1...${after}"
+            if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ] \
+                || ! git rev-parse --verify --quiet "${after}~1" >/dev/null; then
+              # Initial push / no parent — fall back to ALL skills.
+              echo "Initial commit or no parent — evaluating all skills."
+              changed=$(list_all_skills)
             else
               diff_range="${before}...${after}"
+              echo "Diff range: $diff_range"
+              changed=$(git diff --name-only "$diff_range" -- 'skills/*' \
+                | awk -F'/' 'NF>=2 && $1=="skills" {print $1"/"$2}' \
+                | sort -u)
             fi
           fi
-
-          echo "Diff range: $diff_range"
-
-          # Extract top-level skill paths (skills/<name>/) that contain a SKILL.md.
-          changed=$(git diff --name-only "$diff_range" -- 'skills/*' \
-            | awk -F'/' 'NF>=2 && $1=="skills" {print $1"/"$2}' \
-            | sort -u)
 
           paths=""
           for p in $changed; do
