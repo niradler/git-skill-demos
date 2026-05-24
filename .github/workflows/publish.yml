@@ -39,11 +39,14 @@ jobs:
         with:
           go-version: "1.22"
 
-      - name: Install git-skill
+      - name: Install git-skill (plus git-asset alias)
         run: |
           go install github.com/niradler/git-skill/cmd/git-skill@v0.2.0
-          # Ensure go bin is on PATH for subsequent steps.
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          gobin="$(go env GOPATH)/bin"
+          echo "$gobin" >> "$GITHUB_PATH"
+          # The same binary is dispatched by argv[0]: linking it as
+          # git-asset enables the multi-kind profile (skill + agent push).
+          ln -sf "$gobin/git-skill" "$gobin/git-asset"
 
       - name: Sanity check git-skill
         run: git skill --help || git-skill --help
@@ -101,11 +104,11 @@ jobs:
             name="$(basename "$asset_path")"
 
             if [ "$kind_dir" = "skills" ]; then
-              cli="git skill"
               kind="skill"
+              kind_flag=""
             else
-              cli="git asset --kind agent"
               kind="agent"
+              kind_flag="--kind agent"
             fi
 
             echo "::group::publish $kind/$name ($asset_path)"
@@ -138,8 +141,8 @@ jobs:
               continue
             fi
 
-            $cli commit "$name" --path "$asset_path" -m "publish from CI: ${COMMIT_SHA}"
-            $cli tag "$name" "$dev_version"
+            git skill commit "$name" $kind_flag --path "$asset_path" -m "publish from CI: ${COMMIT_SHA}"
+            git skill tag "$name" "$dev_version" $kind_flag
 
             echo "::endgroup::"
           done
@@ -150,9 +153,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # Push skill and agent ref namespaces. Safe even if one is empty.
-          git skill push origin || true
-          git asset --kind agent push origin || true
+          # Use the multi-kind git-asset profile to push both skill and
+          # agent refs/tags in one shot.
+          git asset push origin
 
       - name: No assets changed
         if: steps.changed.outputs.paths == ''
