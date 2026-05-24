@@ -1,0 +1,16 @@
+{
+  "evals": [
+    {
+      "id": "publish-new-version",
+      "prompt": "I want to publish version 1.2.0 of my `code-review` skill to my repo's remote. The skill lives at `skills/code-review/SKILL.md`. What commands do I run, in order?"
+    },
+    {
+      "id": "install-from-other-repo",
+      "prompt": "Someone shared a skill in their repo at `https://github.com/acme/skills.git` called `acme/release-notes`. I want to install version `^2.0.0` into my project so it materializes into `.claude/skills/release-notes/`. Walk me through it."
+    },
+    {
+      "id": "rollback-bad-version",
+      "prompt": "I'm consuming `code-review@^1.0.0` via `assets.json`. The producer just shipped 1.1.0 and it's broken in our CI. I need to roll back to 1.0.0 right now without waiting for the producer to fix it. How?"
+    }
+  ]
+}
