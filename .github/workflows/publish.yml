@@ -31,7 +31,7 @@ jobs:
 
       - name: Install git-skill
         run: |
-          go install github.com/niradler/git-skill/cmd/git-skill@latest
+          go install github.com/niradler/git-skill/cmd/git-skill@v0.2.0
           # Ensure go bin is on PATH for subsequent steps.
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
