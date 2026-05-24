@@ -1,0 +1,16 @@
+{
+  "evals": [
+    {
+      "id": "divide-by-zero",
+      "prompt": "Review this Python change:\n\n```python\ndef divide(a, b):\n    return a / b\n```\n\nThe PR description says \"add a helper for ratio calculations\"."
+    },
+    {
+      "id": "sql-injection",
+      "prompt": "Review this Node.js change:\n\n```js\napp.get('/user', (req, res) => {\n  const id = req.query.id;\n  db.query(`SELECT * FROM users WHERE id = ${id}`, (err, rows) => {\n    res.json(rows);\n  });\n});\n```\n\nPR description: \"expose user lookup endpoint\"."
+    },
+    {
+      "id": "scope-creep",
+      "prompt": "Review this PR titled \"fix(parser): handle trailing commas\". The diff:\n\n```diff\n--- a/parser.py\n+++ b/parser.py\n@@ -42,7 +42,10 @@ def parse_tuple(tokens):\n     items = []\n     while tokens.peek() != ')':\n         items.append(parse_expr(tokens))\n-        tokens.expect(',')\n+        if tokens.peek() == ',':\n+            tokens.advance()\n+        else:\n+            break\n     tokens.expect(')')\n     return Tuple(items)\n\n--- a/README.md\n+++ b/README.md\n@@ -1,3 +1,5 @@\n # MyParser\n+\n+A parser for my custom DSL. Now with emoji support! 🎉\n\n--- a/logger.py\n+++ b/logger.py\n@@ -10,5 +10,5 @@ def log(msg):\n-    print(msg)\n+    print(f\"[LOG] {msg}\")\n```"
+    }
+  ]
+}
